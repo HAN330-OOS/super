@@ -1,0 +1,23 @@
+﻿# Local FY-4 raw downloads (may contain FTP credentials in urls.txt)
+data/fy4_raw/
+
+# Local data (large inputs; keep fy4_raw rule above for clarity)
+data/
+
+# Generated outputs
+outputs/
+outputs/**/*.npz
+outputs/**/*.nc
+outputs/**/*.nc4
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# MERRA2 downloads and derived artifacts
+MERRA2/tavg1_2d_*/
+MERRA2/rest2_outputs/
+MERRA2/subset_txt/
+MERRA2/validation_reports/
+MERRA2/.wget-hsts
