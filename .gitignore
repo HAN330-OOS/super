@@ -21,3 +21,5 @@ MERRA2/rest2_outputs/
 MERRA2/subset_txt/
 MERRA2/validation_reports/
 MERRA2/.wget-hsts
+MERRA2/wget.exe
+MERRA2/*.exe

@@ -1,5 +1,5 @@
 """
-FY-3C / FY-4A 师兄半开窗口匹配统计（非最近邻）。
+FY-3C / FY-4A 半开窗口匹配统计（非最近邻）。
 
 每个 FY4_HHMM 对应 UTC 半开窗 [HH:MM, HH:MM+15min)（文件名时次，见产品规格 PDF）；
 FY-3 像元 best_minute 为 CST，匹配时转为 UTC 与 FY-4 窗口比较。
