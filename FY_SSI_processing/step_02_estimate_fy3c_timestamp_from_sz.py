@@ -67,7 +67,7 @@ def parse_args() -> argparse.Namespace:
         "--max-error-deg",
         type=float,
         default=None,
-        help="质控阈值(度)：拟合残差>该值的像元判为低质量；不给则用拟合残差 p95。",
+        help="质控阈值(度)：拟合残差>该值的像元判为低质量；不给则不按残差剔除。",
     )
     parser.add_argument(
         "--fill-from-neighbors",
@@ -168,9 +168,27 @@ def build_sampled_grid(stride: int, shape: tuple[int, int]) -> tuple[np.ndarray,
 def clean_sz(sz: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     clean = sz.astype(np.float32, copy=True)
     clean[np.abs(clean) > 1.0e20] = np.nan
-    valid = np.isfinite(clean) & (clean >= 0.0) & (clean <= 180.0)
+    # FY-3C products use exact zero in missing/fill blocks. Treating those
+    # pixels as a physical 0-degree zenith angle creates plausible-looking but
+    # spurious timestamps, especially near the sub-solar latitude.
+    valid = np.isfinite(clean) & (clean > 0.0) & (clean <= 180.0)
     clean[~valid] = np.nan
     return clean, valid
+
+
+def apply_fit_quality_mask(
+    best_minute: np.ndarray,
+    best_diff: np.ndarray,
+    max_error_deg: float | None,
+) -> np.ndarray:
+    """Invalidate timestamps that do not reproduce the observed zenith angle."""
+    fitted = (best_minute >= 0) & np.isfinite(best_diff)
+    if max_error_deg is None:
+        return fitted
+
+    quality_mask = fitted & (best_diff <= max_error_deg)
+    best_minute[~quality_mask] = -1
+    return quality_mask
 
 def solar_zenith_deg(
     doy: int,
@@ -245,17 +263,32 @@ def estimate_timestamp(
         for minute in candidate_minutes:
             if prior_min_by_lon is None:
                 allowed_cols = None
+                active_cols = slice(None)
             else:
                 allowed_cols = (minute >= prior_min_by_lon) & (minute <= prior_max_by_lon)
                 if not np.any(allowed_cols):
                     continue
-            sza = solar_zenith_deg(doy, int(minute), lons, sin_lats, cos_lats, timezone_hours)
-            diff = np.abs(sza - sz_block)
-            update = valid_block & (diff < best_diff_block)
+                allowed_indices = np.flatnonzero(allowed_cols)
+                active_cols = slice(int(allowed_indices[0]), int(allowed_indices[-1]) + 1)
+
+            sza = solar_zenith_deg(
+                doy,
+                int(minute),
+                lons[active_cols],
+                sin_lats,
+                cos_lats,
+                timezone_hours,
+            )
+            sz_active = sz_block[:, active_cols]
+            valid_active = valid_block[:, active_cols]
+            best_diff_active = best_diff_block[:, active_cols]
+            best_minute_active = best_minute_block[:, active_cols]
+            diff = np.abs(sza - sz_active)
+            update = valid_active & (diff < best_diff_active)
             if allowed_cols is not None:
-                update &= allowed_cols[None, :]
-            best_diff_block[update] = diff[update]
-            best_minute_block[update] = int(minute)
+                update &= allowed_cols[active_cols][None, :]
+            best_diff_active[update] = diff[update]
+            best_minute_active[update] = int(minute)
 
         print(
             f"  block {block_index}/{total_blocks}: rows {row_start}-{row_end - 1}, "
@@ -289,11 +322,13 @@ def plot_timestamp(
     ticks = np.arange(start_minute, end_minute + 1, 30)
 
     fig, ax = plt.subplots(figsize=(11, 6.5), constrained_layout=True)
+    cmap = plt.get_cmap("viridis").copy()
+    cmap.set_bad(color="#bdbdbd")
     im = ax.imshow(
         plot_data,
         origin="upper",
         extent=extent,
-        cmap="viridis",
+        cmap=cmap,
         vmin=start_minute,
         vmax=end_minute,
         aspect="auto",
@@ -337,11 +372,13 @@ def plot_error(
     extent = (float(lons[0]), float(lons[-1]), float(lats[-1]), float(lats[0]))
 
     fig, ax = plt.subplots(figsize=(11, 6.5), constrained_layout=True)
+    cmap = plt.get_cmap("magma").copy()
+    cmap.set_bad(color="#bdbdbd")
     im = ax.imshow(
         plot_data,
         origin="upper",
         extent=extent,
-        cmap="magma",
+        cmap=cmap,
         vmin=0.0,
         vmax=vmax,
         aspect="auto",
@@ -353,6 +390,16 @@ def plot_error(
     ax.grid(True, linewidth=0.3, alpha=0.35)
     cbar = fig.colorbar(im, ax=ax, shrink=0.86)
     cbar.set_label("Minimum |calculated SZA - FY-3C Sz| (deg)")
+    ax.text(
+        0.99,
+        0.02,
+        "gray = invalid/fill",
+        transform=ax.transAxes,
+        ha="right",
+        fontsize=9,
+        color="black",
+        bbox={"facecolor": "#bdbdbd", "alpha": 0.8, "pad": 3},
+    )
     ax.text(
         0.01,
         0.02,
@@ -443,6 +490,8 @@ def describe_results(
 
 
 def process_date(args: argparse.Namespace, date: str) -> None:
+    if args.max_error_deg is not None and args.max_error_deg <= 0:
+        raise ValueError("--max-error-deg must be > 0.")
     if args.stride < 1:
         raise ValueError("--stride 必须 >= 1。")
     if args.block_rows < 1:
@@ -467,7 +516,7 @@ def process_date(args: argparse.Namespace, date: str) -> None:
     output_suffix = ""
     if args.use_local_time_prior:
         output_suffix = f"_prior{minute_filename_label(local_overpass_minute)}w{args.prior_window_minutes}"
-    out_npz = args.output_npz or OUTPUT_TIMESTAMP_DIR / f"fy3c_timestamp_{date}{output_suffix}.npz"
+    out_npz = args.output_npz or OUTPUT_TIMESTAMP_DIR / f"fy3c_timestamp_{date}{output_suffix}_stride{args.stride}.npz"
     out_fig = args.output_fig or OUTPUT_TIMESTAMP_DIR / f"fy3c_timestamp_{date}{output_suffix}.png"
     out_error_fig = args.output_error_fig or OUTPUT_TIMESTAMP_DIR / f"fy3c_timestamp_error_{date}{output_suffix}.png"
     candidate_minutes = np.arange(start_minute, end_minute + 1, dtype=np.int16)
@@ -484,6 +533,8 @@ def process_date(args: argparse.Namespace, date: str) -> None:
 
     sz_raw = read_sz_product(sz_path, args.stride)
     sz, valid = clean_sz(sz_raw)
+    zero_fill_count = int(np.count_nonzero(np.isfinite(sz_raw) & (sz_raw == 0.0)))
+    print(f"  Sz exact-zero fill pixels excluded: {zero_fill_count}")
     lons, lats = build_sampled_grid(args.stride, sz.shape)
     prior_center_by_lon = None
     prior_min_by_lon = None
@@ -505,6 +556,14 @@ def process_date(args: argparse.Namespace, date: str) -> None:
             f"{minute_label(np.nanmin(prior_center_by_lon))}-{minute_label(np.nanmax(prior_center_by_lon))}; "
             f"可用经度列={int(usable_cols.sum())}/{usable_cols.size}"
         )
+        required_start = int(np.ceil(np.nanmin(prior_center_by_lon) - args.prior_window_minutes))
+        required_end = int(np.floor(np.nanmax(prior_center_by_lon) + args.prior_window_minutes))
+        if start_minute > required_start or end_minute < required_end:
+            print(
+                "  WARNING: global search window clips the longitude-dependent prior; "
+                f"full coverage needs {minute_label(required_start)}-"
+                f"{minute_label(required_end)} CST"
+            )
     else:
         print("  地方时先验: off")
 
@@ -529,6 +588,15 @@ def process_date(args: argparse.Namespace, date: str) -> None:
         prior_min_by_lon=prior_min_by_lon,
         prior_max_by_lon=prior_max_by_lon,
     )
+
+    fitted_before_qc = (best_minute >= 0) & np.isfinite(best_diff)
+    quality_mask = apply_fit_quality_mask(best_minute, best_diff, args.max_error_deg)
+    rejected_by_error = int(np.count_nonzero(fitted_before_qc & ~quality_mask))
+    if args.max_error_deg is not None:
+        print(
+            f"  Residual QC: <= {args.max_error_deg:g} deg; "
+            f"rejected={rejected_by_error}/{int(fitted_before_qc.sum())}"
+        )
 
     describe_results(
         sz=sz,
@@ -571,6 +639,10 @@ def process_date(args: argparse.Namespace, date: str) -> None:
         prior_center_by_lon=prior_center_by_lon if prior_center_by_lon is not None else np.array([], dtype=np.float32),
         prior_min_by_lon=prior_min_by_lon if prior_min_by_lon is not None else np.array([], dtype=np.int16),
         prior_max_by_lon=prior_max_by_lon if prior_max_by_lon is not None else np.array([], dtype=np.int16),
+        quality_mask=quality_mask,
+        max_error_deg=np.nan if args.max_error_deg is None else float(args.max_error_deg),
+        zero_fill_count=zero_fill_count,
+        rejected_by_error=rejected_by_error,
         time_assumption="candidate minutes are CST clock time; SZA uses longitude-corrected true solar time",
         sz_path=str(sz_path),
     )

@@ -630,6 +630,19 @@ def process_date(args: argparse.Namespace, date: str) -> None:
         writer.writeheader()
         writer.writerows(stats_rows)
 
+    # A rerun can find fewer swaths than an earlier run. Remove only obsolete
+    # generated plots for this same date after all replacement plots and the
+    # statistics CSV have been written successfully.
+    expected_plot_names: set[str] = set()
+    for swath in swaths:
+        lon_span = swath.lon_max - swath.lon_min
+        zoom_tag = "_zoom" if lon_span < args.zoom_if_lon_span_deg else ""
+        expected_plot_names.add(f"swath{swath.swath_id}_triple{zoom_tag}_{date}.png")
+    for old_plot in output_dir.glob(f"swath*_triple*_{date}.png"):
+        if old_plot.name not in expected_plot_names:
+            old_plot.unlink()
+            print(f"  removed stale plot: {old_plot}")
+
     print()
     print("完成:")
     for swath in swaths:

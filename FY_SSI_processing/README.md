@@ -62,11 +62,22 @@ FY-4A：2748×2748，raw 文件通道 0=纬度、1=经度，`1000000` 为无效�
 
 在项目根目录 `D:\Super-Resolution` 执行。
 
+推荐使用项目独立 Conda 环境：
+
+```powershell
+& D:\ana\Scripts\conda.exe env create -f environment.yml
+& D:\ana\Scripts\conda.exe run -n super-resolution python --version
+```
+
+环境名固定为 `super-resolution`；依赖版本记录在项目根目录的 `environment.yml`。
+在 Anaconda Prompt 中可执行 `conda activate super-resolution`；若 PowerShell 执行策略禁止
+加载 Conda hook，则直接使用 `conda.exe run -n super-resolution ...`，无需放宽系统策略。
+
 **日期范围**：各 step 脚本支持可选 `--end-date YYYYMMDD`（含），与 `--date` 一起使用时在脚本内逐日循环，并打印 `[3/31] 20180503` 进度；省略 `--end-date` 时行为与原先单 `--date` 相同。
 
 ```powershell
 # 整月示例（step_02 → step_03b）
-py -3 FY_SSI_processing\step_02_estimate_fy3c_timestamp_from_sz.py --date 20180501 --end-date 20180531 --stride 1 --use-local-time-prior --prior-window-minutes 120
+py -3 FY_SSI_processing\step_02_estimate_fy3c_timestamp_from_sz.py --date 20180501 --end-date 20180531 --stride 1 --start 07:00 --end 15:30 --use-local-time-prior --prior-window-minutes 120 --max-error-deg 0.5
 py -3 FY_SSI_processing\step_03_resample_fy4_times_to_fy3_grid.py --date 20180501 --end-date 20180531 --skip-existing
 py -3 MERRA2\build_rest2_ghi_slot_cache.py --date 20180501 --end-date 20180531 --skip-existing
 py -3 FY_SSI_processing\step_03c_resample_rest2_ghi_to_fy3_grid.py --date 20180501 --end-date 20180531 --skip-existing --build-rest2-cache
@@ -92,9 +103,15 @@ py -3 FY_SSI_processing\step_02_estimate_fy3c_timestamp_from_sz.py --date 201805
 
 ```powershell
 py -3 FY_SSI_processing\step_02_estimate_fy3c_timestamp_from_sz.py `
-  --date 20180501 --stride 1 --start 08:00 --end 14:00 `
-  --use-local-time-prior --local-overpass-time 10:15 --prior-window-minutes 120
+  --date 20180501 --stride 1 --start 07:00 --end 15:30 `
+  --use-local-time-prior --local-overpass-time 10:15 --prior-window-minutes 120 `
+  --max-error-deg 0.5
 ```
+
+全国 73–135°E 网格上的 `10:15 ±120 min` 地方太阳时先验约对应 CST
+`07:15–15:23`，因此全局搜索窗需覆盖该范围；`08:00–14:00` 会截断东西部像元。
+原始 `Sz == 0` 按产品填充值处理，不参与反演；`--max-error-deg` 会将不能在阈值内
+重现观测 Sz 的时间戳置为无效，同时在 npz 中保留 `best_diff` 供诊断。
 
 推荐输出（`outputs/fy/timestamp/`）：
 

@@ -48,6 +48,10 @@ FY 相关输出在 `outputs/fy/`：
 
 根目录 `merra2.py`、`clear_sky.py` 为 step_04 的 REST2 依赖，请勿删除。
 
+## FY-CSI-DRCT 模型实验
+
+模型训练、评估和论文绘图代码在 [`DRCT/`](DRCT/)；该目录复用本仓库根目录的 `FY_SSI_processing/`、`MERRA2/`、`clear_sky.py`、`merra2.py` 与 `environment.yml`，不再维护副本。
+
 ## 其他
 
 - `outputs/hu_references_extracted.txt`：文献摘录，与 FY 流程无关。

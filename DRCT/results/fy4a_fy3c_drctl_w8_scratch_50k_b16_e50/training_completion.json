@@ -1,0 +1,19 @@
+{
+  "training_status": "complete",
+  "stop_reason": "l1_converged",
+  "stop_epoch": 271,
+  "final_checkpoint": "checkpoints/epoch_271_converged_final.pth",
+  "convergence_state": {
+    "metric": "epoch-average training L1 / normalized-CSI MAE",
+    "mode": "min",
+    "min_delta": 0.0001,
+    "patience": 5,
+    "earliest_stop_epoch": 56,
+    "best_l1": 0.030560864,
+    "best_epoch": 266,
+    "epochs_without_improvement": 5,
+    "last_completed_epoch": 271,
+    "should_stop": true
+  },
+  "hard_cap_epoch": 300
+}

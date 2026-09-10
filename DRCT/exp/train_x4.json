@@ -1,0 +1,64 @@
+{
+  "task": "Matched FY-4A to FY-3C CSI super-resolution",
+  "experiment": "fy4a_fy3c_drctl_w8_scratch_50k_b16_e50",
+  "model": "DRCT-L",
+  "scale": 4,
+  "path": {
+    "results": "results/fy4a_fy3c_drctl_w8_scratch_50k_b16_e50",
+    "final_checkpoint": "results/fy4a_fy3c_drctl_w8_scratch_50k_b16_e50/checkpoints/epoch_271_converged_final.pth",
+    "visual_spec": "exp/fixed_visual_samples.json"
+  },
+  "datasets": {
+    "dataset_root": "datasets/fy4a_fy3c_csi_x4",
+    "source_samples_root": "outputs/fy/samples",
+    "train_manifest": "datasets/fy4a_fy3c_csi_x4/train/samples.json",
+    "validation_manifest": "datasets/fy4a_fy3c_csi_x4/validation/samples.json",
+    "test_manifest": "datasets/fy4a_fy3c_csi_x4/test/samples.json",
+    "validation_dates": [
+      "20180620",
+      "20180621",
+      "20180622",
+      "20180623",
+      "20180624",
+      "20180625",
+      "20180626",
+      "20180627",
+      "20180628",
+      "20180629",
+      "20180630"
+    ],
+    "augmentation": false
+  },
+  "network": {
+    "upscale": 4,
+    "in_chans": 1,
+    "img_size": 32,
+    "window_size": 8,
+    "compress_ratio": 3,
+    "squeeze_factor": 30,
+    "conv_scale": 0.01,
+    "overlap_ratio": 0.5,
+    "img_range": 1.0,
+    "depths": [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
+    "embed_dim": 180,
+    "num_heads": [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
+    "gc": 32,
+    "mlp_ratio": 2,
+    "upsampler": "pixelshuffle",
+    "resi_connection": "1conv"
+  },
+  "train": {
+    "initialization": "from scratch",
+    "train_samples": 50000,
+    "effective_batch_size": 16,
+    "micro_batch_cap": 8,
+    "epochs_cap": 300,
+    "learning_rate": 0.0002,
+    "betas": [0.9, 0.99],
+    "loss": "L1 / normalized CSI MAE",
+    "historical_monitor_samples": 1000,
+    "validation_samples": 10000,
+    "final_test_samples": 10000,
+    "seed": 60
+  }
+}
