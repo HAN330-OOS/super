@@ -1,8 +1,7 @@
 """DRCT network for single-channel ×4 satellite super-resolution.
 
 The architecture is adapted from the official DRCT implementation. Project
-entry points import :class:`DRCT` directly from this module, matching the
-``models/network_swinrgf.py`` naming convention used by SWINRGF.
+entry points import :class:`DRCT` directly from this module.
 """
 
 import math

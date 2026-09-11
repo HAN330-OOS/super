@@ -1,8 +1,8 @@
 ﻿# Local FY-4 raw downloads (may contain FTP credentials in urls.txt)
-data/fy4_raw/
+/data/fy4_raw/
 
 # Local data (large inputs; keep fy4_raw rule above for clarity)
-data/
+/data/
 
 # Generated outputs
 outputs/
@@ -40,7 +40,6 @@ DRCT/results/**/baseline_frequency_metrics.csv
 DRCT/results/**/*.log
 DRCT/results/**/checkpoints/*.pth
 DRCT/results/**/training_cache_float32/
-DRCT/software_copyright/output/
 
 # Jupyter autosave checkpoints in the SWINRGF experiment
 SWINRGF-main/**/.ipynb_checkpoints/

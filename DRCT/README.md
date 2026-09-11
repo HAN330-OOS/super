@@ -28,10 +28,12 @@ FY-4A SSI + FY-3C Gc/Sz + MERRA-2 大气参数
 Super-Resolution/
 ├─ FY_SSI_processing/             # FY-3C/FY-4A 时空匹配、CSI 与 patch 构建（共享）
 │  ├─ fy_io.py                    # 产品读取、网格、掩膜与公共路径
-│  ├─ step_02_*.py                # FY-3C 像元观测时刻反演
-│  ├─ step_03_*.py                # FY-4A 时间匹配、空间映射及 REST2 重采样
-│  ├─ step_04_*.py                # CSI 质量控制与 ×4 样本提取
-│  └─ plot_fig5_*.py              # 第5章数据与方法图
+│  ├─ step_01_*.py                # FY-3C 像元观测时刻反演
+│  ├─ step_02_*.py                # FY-4A 空间映射
+│  ├─ step_03_*.py                # FY-3/FY-4 时间匹配
+│  ├─ step_04_*.py                # REST2 晴空辐照度重采样
+│  ├─ step_05_*.py                # CSI 质量控制与 ×4 样本提取
+│  └─ plots/                       # 第5章数据与方法图及检查绘图脚本
 ├─ MERRA2/                        # MERRA-2 下载、校验、修复及 REST2 驱动脚本（共享）
 ├─ clear_sky.py, merra2.py        # REST2 所需公共模块（共享）
 ├─ environment.yml                 # FY 数据处理环境（共享）
@@ -77,6 +79,31 @@ outputs/fy/samples/<YYYYMMDD>_utc/
 $env:FY_CSI_SAMPLES_ROOT = 'D:\path\to\outputs\fy\samples'
 ```
 
+### DRCT 固定数据集（E 盘）
+
+正式 DRCT 实验使用的 50,000 条训练、10,000 条验证和 10,000 条独立测试样本已从上述按日期混放的 batch NPZ 中导出为三个**真实分区**：
+
+```text
+E:\Super-Resolution-Processed\
+├─ train\        # 50,000 对 LR/HR CSI
+├─ validation\   # 10,000 对正式验证样本；另含 5 对固定展示样本
+└─ test\         # 10,000 对独立测试样本
+```
+
+每个分区包含内存映射的 `lr_csi.npy` / `hr_csi.npy`、`samples.json` 与 `metadata.json`；验证和测试分区额外保存 `clear_ghi.npy`，因此物理量 GHI 评估也不依赖原始 batch。重新生成该目录时，在仓库根目录运行：
+
+```powershell
+python DRCT\data\export_fixed_splits.py --destination E:\Super-Resolution-Processed
+```
+
+`main.py` 会在该目录存在时自动优先使用它。若采用其他位置，设置：
+
+```powershell
+$env:DRCT_PROCESSED_DATA_ROOT = 'E:\path\to\Super-Resolution-Processed'
+```
+
+若该目录不存在，程序才回退至 `outputs/fy/samples/` 和仓库内的固定清单。
+
 原始数据需要自行准备：FY-4A AGRI L2 SSI、FY-3C Gc/Sz 及对应 MERRA-2 数据。详细产品读取、有效值筛选和目录约定见 [../FY_SSI_processing/README.md](../FY_SSI_processing/README.md)。
 
 ## 数据集构建
@@ -85,23 +112,23 @@ $env:FY_CSI_SAMPLES_ROOT = 'D:\path\to\outputs\fy\samples'
 
 ```powershell
 # 1. 由 FY-3C Sz 与经纬度反演逐像元观测时刻
-python FY_SSI_processing/step_02_estimate_fy3c_timestamp_from_sz.py
+python FY_SSI_processing/step_01_estimate_fy3c_timestamp_from_sz.py
 
 # 2. 将每个实际 FY-4A 时次映射至 FY-3C 公共网格
-python FY_SSI_processing/step_03_resample_fy4_times_to_fy3_grid.py
+python FY_SSI_processing/step_02_resample_fy4_times_to_fy3_grid.py
 
 # 3. 使用 [t0, t0 + 15 min) 半开时间窗进行逐像元时次匹配
-python FY_SSI_processing/step_03b_fy3_fy4_slot_map.py
+python FY_SSI_processing/step_03_build_fy3_fy4_slot_map.py
 
 # 4. 计算/缓存 REST2 晴空辐照度并映射至公共网格
-python FY_SSI_processing/build_rest2_ghi_slot_cache.py
-python FY_SSI_processing/step_03c_resample_rest2_ghi_to_fy3_grid.py
+python MERRA2/build_rest2_ghi_slot_cache.py
+python FY_SSI_processing/step_04_resample_rest2_ghi_to_fy3_grid.py
 
 # 5. 构建 LR 32×32 与 HR 128×128 的 CSI 配对样本
-python FY_SSI_processing/step_04_build_fy3_fy4_samples_20180501.py
+python FY_SSI_processing/step_05_build_fy3_fy4_samples.py
 ```
 
-`step_04` 的低分辨率输入直接来自真实 FY-4A SSI；FY-3C 仅提供高分辨率监督参考，不通过人工降采样 FY-3C 构造 LR 输入。
+`step_05` 的低分辨率输入直接来自真实 FY-4A SSI；FY-3C 仅提供高分辨率监督参考，不通过人工降采样 FY-3C 构造 LR 输入。
 
 ## DRCT 实验
 

@@ -30,7 +30,12 @@ from PIL import Image, ImageDraw, ImageFont
 from skimage.metrics import structural_similarity as ssim_metric
 from torch.utils.data import DataLoader, Dataset, Subset
 
-from data.dataset_SR_satellite import CSI_SCALE, split_by_dates
+from data.dataset_SR_satellite import (
+    CSI_SCALE,
+    PreparedCSIDataset,
+    load_prepared_splits,
+    split_by_dates,
+)
 from models.network_drct import DRCT
 from utils.utils_paths import FY_SAMPLES_ROOT
 
@@ -47,6 +52,8 @@ with OPTION_PATH.open(encoding="utf-8") as _options_handle:
 # 原始 FY-4A/FY-3C 批量 NPZ 样本始终保存在 SAMPLES_ROOT。下面三份清单
 # 只记录训练、验证和测试成员，不重复复制卫星样本数据。
 SAMPLES_ROOT = FY_SAMPLES_ROOT
+PROCESSED_DATA_ROOT_ENV = "DRCT_PROCESSED_DATA_ROOT"
+DEFAULT_PROCESSED_DATA_ROOT = Path(r"E:\Super-Resolution-Processed")
 DATASET_ROOT = (PROJECT_ROOT / DATASET_OPTIONS["dataset_root"]).resolve()
 TRAIN_SPLIT_PATH = (PROJECT_ROOT / DATASET_OPTIONS["train_manifest"]).resolve()
 VALIDATION_SPLIT_PATH = (PROJECT_ROOT / DATASET_OPTIONS["validation_manifest"]).resolve()
@@ -146,7 +153,7 @@ class ExperimentConfig:
     shift_size: int = 4
     augmentation: bool = False
     amp: str = "float16"
-    training_cache: str = "read-only float32 NPY memmap; bitwise-verified against source NPZ"
+    training_cache: str = "prepared split NPY when available; otherwise verified float32 NPY cache"
     dataloader_workers: int = CACHE_WORKERS
     validation_workers: int = NUM_WORKERS
     persistent_workers: bool = False
@@ -461,7 +468,16 @@ def prepare_training_cache(
     source_dataset: Any,
     fixed_indices: list[int],
     output_dir: Path,
-) -> Float32TrainingCache:
+) -> Dataset:
+    if isinstance(source_dataset, PreparedCSIDataset):
+        expected = list(range(len(source_dataset)))
+        if fixed_indices != expected:
+            raise RuntimeError("Prepared training split must be consumed in its stored order")
+        print(
+            f"Using prepared float32 training split: {source_dataset.split_dir}",
+            flush=True,
+        )
+        return source_dataset
     cache_dir = output_dir / CACHE_DIRNAME
     if not cache_manifest_is_valid(cache_dir, fixed_indices):
         build_training_cache(source_dataset, fixed_indices, cache_dir)
@@ -605,8 +621,13 @@ def load_or_create_validation_subset(dataset: Any) -> list[int]:
     return selected
 
 
-def fixed_validation_visual_indices() -> list[int]:
+def fixed_validation_visual_indices(dataset: Any | None = None) -> list[int]:
     """返回已完成训练中每轮展示的 5 个固定验证样本。"""
+    if isinstance(dataset, PreparedCSIDataset):
+        indices = dataset.indices_for_role("fixed_visual")
+        if len(indices) != 5 or len(set(indices)) != 5:
+            raise RuntimeError("Prepared split must contain five unique fixed visual samples")
+        return indices
     with VISUAL_SPEC_PATH.open(encoding="utf-8") as handle:
         specification = json.load(handle)
     indices = [int(item["val_index"]) for item in specification["samples"]]
@@ -689,8 +710,61 @@ def build_model(device: torch.device) -> DRCT:
     return model.to(device)
 
 
+def prepared_data_root() -> Path | None:
+    """Resolve the optional external, physically separated DRCT dataset."""
+    configured = os.environ.get(PROCESSED_DATA_ROOT_ENV)
+    if configured:
+        root = Path(configured).expanduser()
+        if not root.exists():
+            raise FileNotFoundError(
+                f"{PROCESSED_DATA_ROOT_ENV} points to a missing directory: {root}"
+            )
+        return root.resolve()
+    if DEFAULT_PROCESSED_DATA_ROOT.exists():
+        return DEFAULT_PROCESSED_DATA_ROOT.resolve()
+    return None
+
+
+def prepared_test_dataset() -> PreparedCSIDataset | None:
+    root = prepared_data_root()
+    if root is None:
+        return None
+    _, _, test_dataset = load_prepared_splits(root, augment_train=False)
+    test_indices = test_dataset.indices_for_role("test")
+    if len(test_indices) != FINAL_TEST_SAMPLES or len(test_dataset) != FINAL_TEST_SAMPLES:
+        raise RuntimeError(
+            f"Prepared test split must contain {FINAL_TEST_SAMPLES} samples, "
+            f"got {len(test_dataset)}"
+        )
+    return test_dataset
+
+
 def build_datasets() -> tuple[Any, Any, list[int], list[int]]:
     """建立原始样本索引，并读取固定训练集和正式验证集清单。"""
+    root = prepared_data_root()
+    if root is not None:
+        train_dataset, validation_dataset, _ = load_prepared_splits(
+            root, augment_train=False
+        )
+        train_indices = train_dataset.indices_for_role("train")
+        validation_indices = validation_dataset.indices_for_role("validation")
+        fixed_visual_indices = validation_dataset.indices_for_role("fixed_visual")
+        if len(train_indices) != TRAIN_SAMPLES or len(train_dataset) != TRAIN_SAMPLES:
+            raise RuntimeError(
+                f"Prepared train split must contain {TRAIN_SAMPLES} samples, got {len(train_dataset)}"
+            )
+        if len(validation_indices) != VALIDATION_SAMPLES:
+            raise RuntimeError(
+                f"Prepared validation split must contain {VALIDATION_SAMPLES} official samples, "
+                f"got {len(validation_indices)}"
+            )
+        if len(fixed_visual_indices) != 5:
+            raise RuntimeError(
+                f"Prepared validation split must contain five fixed visuals, got {len(fixed_visual_indices)}"
+            )
+        print(f"Using physically separated DRCT dataset: {root}", flush=True)
+        return train_dataset, validation_dataset, train_indices, validation_indices
+
     train_dataset, validation_dataset = split_by_dates(
         samples_root=SAMPLES_ROOT,
         val_dates=list(VAL_DATES),
@@ -863,7 +937,7 @@ def cached_training_loader(
 
 
 def load_fixed_visuals(validation_dataset: Any) -> list[tuple[torch.Tensor, torch.Tensor]]:
-    indices = fixed_validation_visual_indices()
+    indices = fixed_validation_visual_indices(validation_dataset)
     return [validation_dataset[index] for index in indices]
 
 
@@ -1774,6 +1848,8 @@ class ClearSkyProvider:
         self.rest2_dirs: dict[Path, Path] = {}
 
     def get(self, dataset_index: int) -> np.ndarray:
+        if isinstance(self.dataset, PreparedCSIDataset):
+            return self.dataset.clear_sky_patch(dataset_index)
         batch_path, batch_index = self.dataset.index[int(dataset_index)]
         batch = self.dataset._load_batch(batch_path)
         row0 = int(batch["row0"][batch_index])
@@ -1896,16 +1972,23 @@ def formal_evaluation(
 ) -> dict[str, Any]:
     """使用冻结 checkpoint 在独立的 1 万对测试样本上计算最终指标。"""
     device = torch.device("cuda:0")
-    _, validation_dataset = split_by_dates(
-        samples_root=SAMPLES_ROOT, val_dates=list(VAL_DATES), augment=False
-    )
-    validation_indices = load_or_create_validation_subset(validation_dataset)
-    test_indices = load_or_create_independent_test_subset(
-        validation_dataset,
-        validation_indices,
-        TEST_SPLIT_PATH,
-        FINAL_TEST_SAMPLES,
-    )
+    test_dataset = prepared_test_dataset()
+    if test_dataset is not None:
+        evaluation_dataset: Any = test_dataset
+        test_indices = test_dataset.indices_for_role("test")
+        print(f"Using prepared independent test split: {test_dataset.split_dir}", flush=True)
+    else:
+        _, validation_dataset = split_by_dates(
+            samples_root=SAMPLES_ROOT, val_dates=list(VAL_DATES), augment=False
+        )
+        validation_indices = load_or_create_validation_subset(validation_dataset)
+        evaluation_dataset = validation_dataset
+        test_indices = load_or_create_independent_test_subset(
+            validation_dataset,
+            validation_indices,
+            TEST_SPLIT_PATH,
+            FINAL_TEST_SAMPLES,
+        )
     seed_everything(SEED)
     model = build_model(device)
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
@@ -1913,7 +1996,7 @@ def formal_evaluation(
         raise KeyError(f"Inference checkpoint has no params_ema: {checkpoint_path}")
     model.load_state_dict(checkpoint["params_ema"], strict=True)
     model.eval()
-    clear_sky = ClearSkyProvider(validation_dataset)
+    clear_sky = ClearSkyProvider(evaluation_dataset)
     bicubic_accumulator = RegressionAccumulator()
     drct_accumulator = RegressionAccumulator()
     per_date_bicubic: dict[str, RegressionAccumulator] = defaultdict(RegressionAccumulator)
@@ -1928,7 +2011,7 @@ def formal_evaluation(
     full_min = math.inf
     full_max = -math.inf
     rng = np.random.default_rng(SEED)
-    loader = validation_loader(validation_dataset, test_indices, VALIDATION_BATCH)
+    loader = validation_loader(evaluation_dataset, test_indices, VALIDATION_BATCH)
     offset = 0
     with torch.inference_mode(), torch.amp.autocast("cuda", dtype=torch.float16):
         for batch_number, (low_resolution, target) in enumerate(loader, 1):
@@ -1956,7 +2039,7 @@ def formal_evaluation(
                 drct_valid = drct_ghi[valid]
                 bicubic_accumulator.update(observation_valid, bicubic_valid)
                 drct_accumulator.update(observation_valid, drct_valid)
-                date = date_for_index(validation_dataset, dataset_index)
+                date = date_for_index(evaluation_dataset, dataset_index)
                 per_date_bicubic[date].update(observation_valid, bicubic_valid)
                 per_date_drct[date].update(observation_valid, drct_valid)
                 if observation_valid.size:

@@ -90,7 +90,7 @@ def default_timestamp_npz(
     prior_window_minutes: int = 120,
     stride: int = 1,
 ) -> Path:
-    """Default step_02 npz path (matches batch runner / plot conventions)."""
+    """Default step_01 npz path (matches batch runner / plot conventions)."""
     suffix = ""
     if use_prior:
         hour_text, minute_text = local_overpass_time.split(":", maxsplit=1)
@@ -551,7 +551,7 @@ def match_pixels_to_half_open_windows(
     师兄匹配：best_minute 落在 FY-4 半开窗口 [start, start+window) 的像元赋 slot 索引；否则 -1。
     不使用最近邻。
 
-    FY-4 窗口由文件名 UTC 时次定义（``slot_starts_utc``）。``best_minute`` 默认为 step_02
+    FY-4 窗口由文件名 UTC 时次定义（``slot_starts_utc``）。``best_minute`` 默认为 step_01
     输出的 CST；会在匹配前转为 UTC 与窗口比较。
     """
     slot_map = np.full(best_minute.shape, -1, dtype=np.int16)
