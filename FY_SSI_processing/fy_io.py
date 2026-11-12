@@ -58,8 +58,8 @@ FY3_LAT_START = 54.0
 FY3_STEP = 0.01
 INVALID_GEO_FILL = 1_000_000.0
 
-DEFAULT_LON_MIN, DEFAULT_LON_MAX = 100.0, 120.0
-DEFAULT_LAT_MIN, DEFAULT_LAT_MAX = 30.0, 45.0
+DEFAULT_LON_MIN, DEFAULT_LON_MAX = 73.0, 135.0
+DEFAULT_LAT_MIN, DEFAULT_LAT_MAX = 18.0, 54.0
 
 
 def iter_dates(start_yyyymmdd: str, end_yyyymmdd: str | None = None) -> Iterator[str]:

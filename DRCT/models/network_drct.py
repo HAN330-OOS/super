@@ -9,8 +9,7 @@ import torch
 import torch.nn as nn
 import torch.utils.checkpoint as checkpoint
 
-from basicsr.utils.registry import ARCH_REGISTRY
-from basicsr.archs.arch_util import to_2tuple, trunc_normal_
+from .initialization import to_2tuple, trunc_normal_
 
 from einops import rearrange
 
@@ -627,7 +626,6 @@ class Upsample(nn.Sequential):
         super(Upsample, self).__init__(*m)
 
 
-@ARCH_REGISTRY.register()
 class DRCT(nn.Module):
 
     def __init__(self,

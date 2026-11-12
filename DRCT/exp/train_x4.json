@@ -1,33 +1,18 @@
 {
-  "task": "Matched FY-4A to FY-3C CSI super-resolution",
-  "experiment": "fy4a_fy3c_drctl_w8_scratch_50k_b16_e50",
-  "model": "DRCT-L",
-  "scale": 4,
   "path": {
-    "results": "results/fy4a_fy3c_drctl_w8_scratch_50k_b16_e50",
-    "final_checkpoint": "results/fy4a_fy3c_drctl_w8_scratch_50k_b16_e50/checkpoints/epoch_271_converged_final.pth",
-    "visual_spec": "exp/fixed_visual_samples.json"
+    "data_root": "/dev/shm/drct_csi2_clean",
+    "output_dir": "/root/drct-results/drct_2018_2019_batch64_csi2clean"
   },
-  "datasets": {
-    "dataset_root": "datasets/fy4a_fy3c_csi_x4",
-    "source_samples_root": "outputs/fy/samples",
-    "train_manifest": "datasets/fy4a_fy3c_csi_x4/train/samples.json",
-    "validation_manifest": "datasets/fy4a_fy3c_csi_x4/validation/samples.json",
-    "test_manifest": "datasets/fy4a_fy3c_csi_x4/test/samples.json",
-    "validation_dates": [
-      "20180620",
-      "20180621",
-      "20180622",
-      "20180623",
-      "20180624",
-      "20180625",
-      "20180626",
-      "20180627",
-      "20180628",
-      "20180629",
-      "20180630"
-    ],
-    "augmentation": false
+  "runtime": {
+    "device": "auto",
+    "precision": null,
+    "workers": 2,
+    "validation_batch": 8,
+    "micro_batch": 16,
+    "cpu_threads": 8,
+    "backend": null,
+    "dist_timeout": 3600,
+    "deterministic": false
   },
   "network": {
     "upscale": 4,
@@ -39,26 +24,77 @@
     "conv_scale": 0.01,
     "overlap_ratio": 0.5,
     "img_range": 1.0,
-    "depths": [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
+    "depths": [
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6
+    ],
     "embed_dim": 180,
-    "num_heads": [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
+    "num_heads": [
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6
+    ],
     "gc": 32,
     "mlp_ratio": 2,
     "upsampler": "pixelshuffle",
     "resi_connection": "1conv"
   },
   "train": {
-    "initialization": "from scratch",
-    "train_samples": 50000,
-    "effective_batch_size": 16,
-    "micro_batch_cap": 8,
-    "epochs_cap": 300,
-    "learning_rate": 0.0002,
-    "betas": [0.9, 0.99],
-    "loss": "L1 / normalized CSI MAE",
-    "historical_monitor_samples": 1000,
-    "validation_samples": 10000,
-    "final_test_samples": 10000,
-    "seed": 60
+    "global_batch": 64,
+    "seed": 60,
+    "learning_rate": 0.0001,
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "loss": "L1",
+    "ema_decay": 0.999,
+    "augmentation": false,
+    "early_stop": {
+      "min_delta": 0.0001,
+      "patience": 5
+    }
+  },
+  "metrics": {
+    "reference": null,
+    "data_range": null
+  },
+  "test": {
+    "checkpoint": null
+  },
+  "visualization": {
+    "training_curves": true,
+    "refresh_updates": 100,
+    "training_comparison": true,
+    "sample_count": 10,
+    "validation_indices": null,
+    "test_indices": null,
+    "csi_min": null,
+    "csi_max": null,
+    "scatter_csi": true,
+    "scatter_ghi": true,
+    "scatter_points_per_sample": 64,
+    "scatter_max_points": 150000,
+    "clear_ghi": null,
+    "clear_ghi_csv": null
   }
 }

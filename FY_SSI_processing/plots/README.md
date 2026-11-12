@@ -10,4 +10,4 @@ py -3 FY_SSI_processing\plots\plot_fig5_2_time_matching.py
 py -3 FY_SSI_processing\plots\plot_two_swaths.py --date 20180501
 ```
 
-图 5-1 至图 5-6 分别由 `plot_fig5_1_*.py` 至 `plot_fig5_6_*.py` 生成。`matching_figure_data.py` 和 `prepare_fig5_6_native_sample.py` 是这些绘图脚本的内部辅助模块，一般不需要单独运行。
+图 5-1 至图 5-5 由 `plot_fig5_1_*.py` 至 `plot_fig5_5_*.py` 生成。`matching_figure_data.py` 提供绘图所需的数据读取函数。

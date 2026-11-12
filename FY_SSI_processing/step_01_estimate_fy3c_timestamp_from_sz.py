@@ -77,6 +77,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-npz", type=Path, default=None)
     parser.add_argument("--output-fig", type=Path, default=None)
     parser.add_argument("--output-error-fig", type=Path, default=None)
+    parser.add_argument("--no-plots", action="store_true", help="不生成时间戳与误差诊断图。")
     parser.add_argument("--plot-max-pixels", type=int, default=1600, help="绘图最大边长，避免 PNG 过大。")
     parser.add_argument("--sample-count", type=int, default=10, help="控制台打印的随机有效像元数。")
     parser.add_argument("--seed", type=int, default=20260501)
@@ -648,21 +649,31 @@ def process_date(args: argparse.Namespace, date: str) -> None:
     )
     print(f"已保存: {out_npz}")
 
-    plot_timestamp(
-        best_minute,
-        lons,
-        lats,
-        start_minute,
-        end_minute,
-        date,
-        out_fig,
-        args.plot_max_pixels,
-        args.stride,
-        run_label=run_label,
-    )
-    print(f"已保存: {out_fig}")
-    plot_error(best_diff, lons, lats, date, out_error_fig, args.plot_max_pixels, args.stride, run_label=run_label)
-    print(f"已保存: {out_error_fig}")
+    if not args.no_plots:
+        plot_timestamp(
+            best_minute,
+            lons,
+            lats,
+            start_minute,
+            end_minute,
+            date,
+            out_fig,
+            args.plot_max_pixels,
+            args.stride,
+            run_label=run_label,
+        )
+        print(f"已保存: {out_fig}")
+        plot_error(
+            best_diff,
+            lons,
+            lats,
+            date,
+            out_error_fig,
+            args.plot_max_pixels,
+            args.stride,
+            run_label=run_label,
+        )
+        print(f"已保存: {out_error_fig}")
 
 
 def main() -> None:

@@ -1,0 +1,23 @@
+{
+  "format_version": 2,
+  "policy": "training_target_range",
+  "kind": "empirical_fixed_reference_not_physical_bound",
+  "source_split": "train",
+  "raw_min": 0.0,
+  "raw_max": 1.999814510345459,
+  "raw_data_range": 1.999814510345459,
+  "data_range": 1.999814510345459,
+  "representation": "raw_csi",
+  "normalization": "none",
+  "training_csv_sha256": "7638d2c0a1771fe9de8e846911c3afd80d7cbe4133a097c7f24ec87686fae959",
+  "training_manifest_sha256": "7638d2c0a1771fe9de8e846911c3afd80d7cbe4133a097c7f24ec87686fae959",
+  "training_manifest": "splits/train_samples.csv",
+  "training_csv_samples": 177380,
+  "training_samples": 177380,
+  "selected_train_indices": null,
+  "preview_only": false,
+  "dataset_format": "npz_csv",
+  "fit_method": "raw_npz_train_csv_grouped_selected_members_only",
+  "created_utc": "2026-10-27T09:02:04.904092+00:00",
+  "reference_scope": "Frozen empirical range of selected TRAIN HR CSI targets; not a physical bound; no clipping"
+}

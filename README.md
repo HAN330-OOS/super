@@ -1,56 +1,39 @@
-# Super-Resolution 工作区
+# FY-4A / FY-3C 太阳辐照度超分辨率
 
-本仓库含两套相对独立的遥感数据处理流程，原始数据主要在 **F 盘**，代码在 **D:\Super-Resolution**。
+DRCT-L 将 FY-4A 的 32×32 原始晴空指数（CSI）图块重建为 128×128，并用配对的 FY-3C 数据评价。正式数据覆盖 2018 年 5 月至 2019 年 12 月。
 
-## FY-3C / FY-4A SSI
+| 目录 | 内容 |
+| --- | --- |
+| [DRCT](DRCT/) | 正式云端模型、训练与测试入口、实验配置和上游许可证 |
+| [FY_SSI_processing](FY_SSI_processing/) | FY 数据对齐、晴空辐照度映射与 CSI 样本生成 |
+| [MERRA2](MERRA2/) | MERRA-2 气象输入与 REST2 晴空辐照度计算 |
+| [splits](splits/) | 正式清洗后划分，共 177,380 个训练、35,482 个验证和 35,476 个测试样本 |
+| [evaluation](evaluation/) | 正式 GHI 评价、四方法指标表和实验来源校验信息 |
 
-目录：[`FY_SSI_processing/`](FY_SSI_processing/)
+## 数据准备
 
-生产工作流（共用 `fy_io.py`）：
+从 FY-3C 时间估计、FY-4A 重采样和时间窗匹配开始，计算并映射 REST2 晴空辐照度，再生成 CSI 样本。处理顺序、输入文件和时区约定见 [FY 预处理说明](FY_SSI_processing/README.md)。本地处理环境见 [environment.yml](environment.yml)。
 
-1. `step_01_estimate_fy3c_timestamp_from_sz.py` — FY-3C 像元时间戳
-2. `step_02_resample_fy4_times_to_fy3_grid.py` — FY-4A 批量重采样到 FY-3C 网格
-3. `step_03_build_fy3_fy4_slot_map.py` — 半开 15 min 窗口像元匹配
-4. `step_04_resample_rest2_ghi_to_fy3_grid.py` — REST2 晴空辐照度重采样到公共网格
-5. `step_05_build_fy3_fy4_samples.py` — 时空配对切训练 patch
+训练和评价沿用归档的原始配对与仓库中的清洗版固定划分。重跑预处理生成的匹配结果需单独核验。
 
-论文及检查图脚本集中在 [`FY_SSI_processing/plots/`](FY_SSI_processing/plots/)。
+## 训练和测试
 
-**FY-4A 时间**：NC 文件名与 step_02 输出标签均为 **UTC**；FY-3 `best_minute` 为 **CST**。详见 [`FY-4A_AGRI_L2_SSI_NOM_4000M_V1.1.pdf`](FY-4A_AGRI_L2_SSI_NOM_4000M_V1.1.pdf) 与 [FY_SSI_processing/README.md](FY_SSI_processing/README.md)。
+在 DRCT 目录运行以下命令。PyTorch、驱动和通信后端由运行环境提供。训练快照保留正式配置，可通过命令行指定数据与输出路径。数据根目录应有 samples/YYYYMMDD 下的 NPZ 文件，以及与本仓库一致的 splits。
 
-**FY-4A SSI 清洗**（`fy_io`）：剔除 `-999`/`65532`/`65535` 与 `0–1500` W/m² 越界；`65532` 在 20180501 V1.0 数据中表示 SZA>70°。DQF==3 默认掩膜（V1.0 若 DQF 全为 3 则自动跳过）。
+    cd DRCT
+    python -m pip install -r requirements.txt
+    python prepare.py env
+    torchrun --standalone --nproc_per_node=4 train_DRCT.py --opt exp/train_x4.json --device cuda --precision fp16 --backend nccl --micro-batch 16 --data-root /path/to/prepared-data --output-dir /path/to/run
+    python test_DRCT.py --opt exp/train_x4.json --data-root /path/to/prepared-data --output-dir /path/to/run --checkpoint /path/to/checkpoint.pth
 
-详细说明见 [FY_SSI_processing/README.md](FY_SSI_processing/README.md)。
+正式训练的全局 batch 为 64。复跑沿用固定 CSV 行顺序。需要复现已报告的权重结果时，可用[正式实验记录](evaluation/formal_run_reference.json)里的 SHA‑256 核对权重。
 
-FY 相关输出在 `outputs/fy/`：
+## 正式结果
 
-| 子目录 | 内容 |
-|--------|------|
-| `timestamp/` | FY-3C 像元时间戳（step_01，CST） |
-| `resampled_on_fy3/<date>_utc/` | 各时次 `FY4_HHMM_on_FY3.npz`（step_02，**HHMM=UTC**） |
-| `matching/<date>_utc/` | slot 匹配 npz/图（step_03） |
-| `rest2_on_fy3/<date>_utc/` | REST2 晴空辐照度场（step_04） |
-| `samples/<date>_utc/` | step_05 训练 patch（`--output-dir` 指定，如 `20180501_utc`） |
+[四方法指标表](evaluation/formal_metrics.csv)汇总 Bicubic、EDSR、SwinIR 和 DRCT-L。PSNR 和 SSIM 按 CSI 计算，R²、RMSE、MAE 和 MBE 按 GHI 计算。MBE 定义为预测减 FY-3C 参考。复算所需文件和命令见[评价说明](evaluation/README.md)。
 
-## MERRA-2 + REST2
+DRCT、BasicSR 和 timm 的上游许可见 [DRCT/LICENSE](DRCT/LICENSE)。
 
-目录：[`MERRA2/`](MERRA2/)
+## 数据与权重
 
-仅在需要获取或修复本地 MERRA-2 原始数据时执行：
-
-1. `step_01_download_merra2.py`
-2. `step_02_validate_merra2_downloads.py`
-3. `step_03_repair_merra2_downloads.py`
-
-FY 主流程的 REST2 缓存由 `build_rest2_ghi_slot_cache.py` 生成，并由 `FY_SSI_processing/step_04_resample_rest2_ghi_to_fy3_grid.py` 调用。根目录 `merra2.py`、`clear_sky.py` 是这条 REST2 链路的依赖，请勿删除。
-
-## FY-CSI-DRCT 模型实验
-
-模型训练、评估和论文绘图代码在 [`DRCT/`](DRCT/)；该目录复用本仓库根目录的 `FY_SSI_processing/`、`MERRA2/`、`clear_sky.py`、`merra2.py` 与 `environment.yml`，不再维护副本。
-
-DRCT 的固定模型数据集单独存放在 `E:\Super-Resolution-Processed\`，并按 `train/`、`validation/`、`test/` 三个真实目录划分。该目录由 `DRCT/data/export_fixed_splits.py` 从 `outputs/fy/samples/` 导出，体积较大，不纳入 Git；DRCT 检测到该目录后会优先直接读取它。
-
-## 其他
-
-- `outputs/hu_references_extracted.txt`：文献摘录，与 FY 流程无关。
-- 运行 Python 脚本建议使用：`py -3 <脚本路径>`
+卫星原始文件、NPZ 样本、晴空 GHI 数组、完整预测和权重单独归档。此目录保留划分索引、数据结构说明和正式权重校验值。

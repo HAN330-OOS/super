@@ -1,4 +1,4 @@
-﻿# Local FY-4 raw downloads (may contain FTP credentials in urls.txt)
+# Local FY-4 raw downloads (may contain FTP credentials in urls.txt)
 /data/fy4_raw/
 
 # Local data (large inputs; keep fy4_raw rule above for clarity)
@@ -43,3 +43,27 @@ DRCT/results/**/training_cache_float32/
 
 # Jupyter autosave checkpoints in the SWINRGF experiment
 SWINRGF-main/**/.ipynb_checkpoints/
+
+# Local validation, paper drafts and external artifacts
+/FY4A-FY3C-Ground-Validation/
+/formal_analysis_2018_2019/
+*.py[cod]
+.venv/
+.env
+.env.*
+.netrc
+*_netrc
+*.pem
+*.key
+external_data/
+results/
+checkpoints/
+*.pth
+*.pt
+*.npy
+*.npz
+*.nc
+*.nc4
+*.sqlite
+*.zip
+*.log

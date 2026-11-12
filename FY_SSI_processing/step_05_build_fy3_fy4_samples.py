@@ -14,7 +14,7 @@ FY-3C / FY-4A 时空配对切训练样本（默认 20180501 单日）。
   4) 时间配对沿用“师兄半开窗口”逻辑：FY-4 时次对应 UTC 半开窗
      [start, start+15min)，FY-3C best_minute（CST）转 UTC 后落入该窗才匹配。
   5) QC 要求：patch 内 slot 匹配覆盖率、SSI 有效比例、best_diff 比例、
-     GHI>0、CSI 落在 [0, 1.5] 的有效比例都达标，才保留该样本。
+     GHI>0 且 CSI 为有限值的比例都达标，才保留该样本；CSI 不设数值范围。
 
 输出：sample_index.csv（每个样本的索引行）+ patches/batch_*.npz
 （含 fy3/fy4 SSI 与 hr_csi/lr_csi）+ build_meta.npz（构建参数与统计）。
@@ -107,8 +107,7 @@ def parse_args() -> argparse.Namespace:
             "小规模测试示例:\n"
             "  py -3 FY_SSI_processing\\step_05_build_fy3_fy4_samples.py "
             "--max-samples 5\n\n"
-            "默认研究区 100-120E, 30-45N；全幅 FY-3 覆盖区可加 "
-            "--lon-min 73 --lon-max 135 --lat-min 18 --lat-max 54"
+            "默认使用 FY-3 全国覆盖网格 73-135E, 18-54N。"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -136,20 +135,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lon-max", type=float, default=DEFAULT_LON_MAX)
     parser.add_argument("--lat-min", type=float, default=DEFAULT_LAT_MIN)
     parser.add_argument("--lat-max", type=float, default=DEFAULT_LAT_MAX)
-    parser.add_argument("--patch-stride", type=int, default=32, help="滑动窗口步长（像元）。")
+    parser.add_argument(
+        "--patch-stride",
+        type=int,
+        default=FY3_PATCH,
+        help="滑动窗口步长（像元）；默认等于 FY-3 patch 尺寸，样本互不重叠。",
+    )
     parser.add_argument("--fy3-patch", type=int, default=FY3_PATCH)
     parser.add_argument("--fy4-patch", type=int, default=FY4_PATCH)
     # ---- REST2 / 晴空指数（CSI）相关参数 ----
-    # CSI = SSI / REST2 晴空 GHI；只有 GHI>0 且 CSI 落在
-    # [csi_min, csi_max] 的像元才算有效，默认 [0, 1.5] 覆盖物理合理范围。
+    # CSI = SSI / REST2 晴空 GHI；只要求 GHI>0 且计算结果有限，
+    # 不按 CSI 数值范围筛选样本。
     parser.add_argument("--rest2-dir", type=Path, default=None,
                         help="REST2 GHI resampled dir (step_04 output).")
-    parser.add_argument("--csi-min", type=float, default=0.0,
-                        help="Valid clear-sky index lower bound.")
-    parser.add_argument("--csi-max", type=float, default=1.5,
-                        help="Valid clear-sky index upper bound.")
     parser.add_argument("--min-csi-valid-frac", type=float, default=0.95,
-                        help="Min fraction of patch pixels with valid CSI in [csi-min, csi-max].")
+                        help="CSI 为有限值的最小像元比例；不限制 CSI 数值范围。")
     parser.add_argument("--max-samples", type=int, default=None, help="最多保留样本数；测试时可设小值。")
     parser.add_argument("--batch-size", type=int, default=64, help="每个 patch npz 打包的样本数。")
     parser.add_argument("--max-diff-deg", type=float, default=0.5, help="像元 best_diff 上限（度）。")
@@ -171,7 +171,7 @@ def parse_args() -> argparse.Namespace:
         default=0.99,
         help=(
             "patch 内有时戳匹配的像元比例下限："
-            "slot_valid_frac = N(slot>=0) / (fy3_patch^2)，默认 0.99（64×64 即至少 4055 像元）。"
+            "slot_valid_frac = N(slot>=0) / (fy3_patch^2)，默认 0.99。"
         ),
     )
     parser.add_argument("--output-dir", type=Path, default=None)
@@ -328,8 +328,8 @@ def patch_passes_qc(
       - 像元有匹配时次（slot >= 0）；
       - best_diff 小于 max_diff_deg（时间反演误差可控）；
       - REST2 GHI 有限且 > 0（晴空分母有效）。
-    另外要求 HR 晴空指数落在 [csi_min, csi_max] 的像元比例
-    不低于 min_csi_valid_frac，防止把异常值带进训练集。
+    另外要求 HR 晴空指数为有限值的像元比例不低于
+    min_csi_valid_frac，但不限制 CSI 的数值范围。
     """
     # ---- 各数据源的有效性掩膜 ----
     valid_gc = np.isfinite(gc_patch)
@@ -342,7 +342,7 @@ def patch_passes_qc(
     # ---- 计算 HR 晴空指数并统计有效比例（只用于 QC） ----
     hr_csi = np.full(gc_patch.shape, np.nan, dtype=np.float32)
     np.divide(gc_patch, rest2_patch, out=hr_csi, where=valid_rest2 & valid_gc)
-    valid_csi = np.isfinite(hr_csi) & (hr_csi >= args.csi_min) & (hr_csi <= args.csi_max)
+    valid_csi = np.isfinite(hr_csi)
 
     # ---- 各项统计量：有效覆盖率 / 坏时间误差比例 / 主时次占比 / CSI 占比 ----
     valid_frac = float(joint.mean())
@@ -390,12 +390,12 @@ def write_batch_npz(
     """把一个 batch 的样本写入压缩 npz。
 
     存储内容：
-      fy3 / fy4    —— FY-3C HR 与 FY-4A LR 的 SSI（兼容旧逻辑）；
-      hr_csi / lr_csi —— HR 128×128 / LR 32×32 的晴空指数（训练主目标）；
-      meta         —— 每个样本的行列起点、中心经纬度、时次、QC 统计等。
+      fy3 / fy4 —— FY-3C HR 与 FY-4A LR 的 SSI；
+      hr_csi / lr_csi —— HR 128×128 / LR 32×32 的晴空指数；
+      meta —— 每个样本的行列起点、中心经纬度、时次、QC 统计等。
     """
     batch_path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(
+    np.savez(
         batch_path,
         fy3=np.stack(fy3_list, axis=0).astype(np.float32),
         fy4=np.stack(fy4_list, axis=0).astype(np.float32),
@@ -424,10 +424,10 @@ def main() -> None:
     rest2_dir = args.rest2_dir or (OUTPUT_REST2_ON_FY3_DIR / f"{args.date}_utc")
     slot_map_npz = args.slot_map_npz or default_slot_map_npz(args.date, args.timestamp_npz)
 
-    # 输出目录：outputs/fy/samples/<date>_utc/，patch 存到其 patches/ 子目录。
+    # 输出目录：outputs/fy/samples/<date>/，NPZ 与 manifest.csv 直接放在日期目录。
     tag = region_tag(args.lon_min, args.lon_max, args.lat_min, args.lat_max)
     out_dir = args.output_dir or (OUTPUT_SAMPLES_DIR / f"{args.date}_utc")
-    patch_dir = out_dir / "patches"
+    patch_dir = out_dir
 
     # FY-3C Gc 二进制（3600×6200 float32，0.01° 网格，逐像元瞬时 SSI）。
     gc_path = args.fy3_gc or default_fy3_gc_path(args.date)
@@ -519,8 +519,7 @@ def main() -> None:
         )[row_start:row_end, col_start:col_end]
 
     # ---------- 7. 初始化样本缓冲与统计 ----------
-    # 每个样本同时存：SSI 对（fy3/fy4，兼容旧逻辑）和 CSI 对（hr_csi/lr_csi，
-    # 训练主目标）。攒满 batch_size 个再写盘。
+    # 每个样本同时保存 SSI 对与 CSI 对，使用未压缩 NPZ 加快后续读取。
     index_rows: list[dict[str, object]] = []
     fy3_batch: list[np.ndarray] = []
     fy4_batch: list[np.ndarray] = []
@@ -588,6 +587,7 @@ def main() -> None:
             center_col = col0 + args.fy3_patch // 2
             center_lon = float(lons_1d[center_col])
             center_lat = float(lats_1d[center_row])
+            fy3_center_minute_cst = int(best_minute[row_start + center_row, col_start + center_col])
 
             # ---- 生成晴空指数（CSI）----
             # HR: kc_FY3 = FY3_Gc / REST2_GHI（128×128）
@@ -604,9 +604,15 @@ def main() -> None:
                 lr_fy4, lr_rest2, out=lr_csi,
                 where=np.isfinite(lr_fy4) & np.isfinite(lr_rest2) & (lr_rest2 > 0),
             )
-            # 把 SSI 与 CSI 四个数组都收进 batch 缓冲。
+            if not all(
+                np.isfinite(array).all()
+                for array in (gc_patch, lr_fy4, hr_csi, lr_csi)
+            ):
+                rejected_qc += 1
+                continue
+            # 把 SSI 与 CSI 四个数组收进 batch 缓冲。
             fy3_batch.append(gc_patch.copy())
-            fy4_batch.append(lr_fy4)
+            fy4_batch.append(lr_fy4.copy())
             hr_csi_batch.append(hr_csi)
             lr_csi_batch.append(lr_csi)
 
@@ -624,28 +630,19 @@ def main() -> None:
             batch_meta["csi_valid_frac"].append(stats["csi_valid_frac"])
 
             # 写索引行：batch 文件名 + batch 内下标 + 全局行列 + 时次 + QC 值。
-            patch_name = f"batch_{batch_id:04d}.npz"
+            patch_name = f"{args.date}_{batch_id + 1:04d}.npz"
             index_rows.append(
                 {
                     "sample_id": sample_id,
-                    "batch_file": patch_name,
-                    "batch_index": len(fy3_batch) - 1,
-                    "row0": row0,
-                    "col0": col0,
-                    "global_row0": row_start + row0,
-                    "global_col0": col_start + col0,
+                    "date": args.date,
+                    "fy3_time": minute_to_hhmm(fy3_center_minute_cst),
+                    "fy4_time": minute_to_hhmm(dominant_minute_utc),
+                    "row": row_start + row0,
+                    "col": col_start + col0,
                     "center_lon": center_lon,
                     "center_lat": center_lat,
-                    "dominant_slot": dominant_slot,
-                    "dominant_slot_label": slots[dominant_slot].utc_label,
-                    "dominant_slot_label_cst": slots[dominant_slot].cst_label,
-                    "dominant_slot_minute_utc": dominant_minute_utc,
-                    "dominant_slot_minute_cst": dominant_minute_cst,
-                    "dominant_slot_frac": stats["dominant_slot_frac"],
-                    "valid_frac": stats["valid_frac"],
-                    "bad_diff_frac": stats["bad_diff_frac"],
-                    "csi_valid_frac": stats["csi_valid_frac"],
-                    "n_slots_in_patch": n_slots_in_patch,
+                    "npz_file": patch_name,
+                    "array_index": len(hr_csi_batch) - 1,
                 }
             )
             sample_id += 1
@@ -656,10 +653,17 @@ def main() -> None:
                 break
 
             # 攒满一个 batch（默认 64 个样本）就写盘，控制内存占用。
-            if len(fy3_batch) >= args.batch_size:
-                write_batch_npz(patch_dir / patch_name, fy3_batch, fy4_batch,
-                                hr_csi_batch, lr_csi_batch, batch_meta)
-                fy3_batch, fy4_batch, hr_csi_batch, lr_csi_batch = [], [], [], []
+            if len(hr_csi_batch) >= args.batch_size:
+                write_batch_npz(
+                    patch_dir / patch_name,
+                    fy3_batch,
+                    fy4_batch,
+                    hr_csi_batch,
+                    lr_csi_batch,
+                    batch_meta,
+                )
+                fy3_batch, fy4_batch = [], []
+                hr_csi_batch, lr_csi_batch = [], []
                 batch_meta = {key: [] for key in batch_meta}
                 batch_id += 1
 
@@ -667,21 +671,23 @@ def main() -> None:
             break
 
     # 写最后不足一组的残余样本。
-    if fy3_batch:
-        write_batch_npz(patch_dir / f"batch_{batch_id:04d}.npz", fy3_batch, fy4_batch,
-                        hr_csi_batch, lr_csi_batch, batch_meta)
+    if hr_csi_batch:
+        write_batch_npz(
+            patch_dir / f"{args.date}_{batch_id + 1:04d}.npz",
+            fy3_batch,
+            fy4_batch,
+            hr_csi_batch,
+            lr_csi_batch,
+            batch_meta,
+        )
 
     # ---------- 9. 写样本索引 CSV ----------
     # 每行一个样本，训练/验证时按 batch_file + batch_index 定位。
     out_dir.mkdir(parents=True, exist_ok=True)
-    index_path = out_dir / "sample_index.csv"
+    index_path = out_dir / "manifest.csv"
     fieldnames = list(index_rows[0].keys()) if index_rows else [
-        "sample_id", "batch_file", "batch_index", "row0", "col0",
-        "global_row0", "global_col0", "center_lon", "center_lat",
-        "dominant_slot", "dominant_slot_label", "dominant_slot_label_cst",
-        "dominant_slot_minute_utc", "dominant_slot_minute_cst",
-        "dominant_slot_frac", "valid_frac", "bad_diff_frac", "csi_valid_frac",
-        "n_slots_in_patch",
+        "sample_id", "date", "fy3_time", "fy4_time", "row", "col",
+        "center_lon", "center_lat", "npz_file", "array_index",
     ]
     with index_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -715,8 +721,6 @@ def main() -> None:
         max_bad_diff_frac=args.max_bad_diff_frac,
         min_valid_frac=args.min_valid_frac,
         rest2_dir=str(rest2_dir),
-        csi_min=args.csi_min,
-        csi_max=args.csi_max,
         min_csi_valid_frac=args.min_csi_valid_frac,
         candidate_patches=candidate_count,
         accepted_samples=sample_id,

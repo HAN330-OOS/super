@@ -14,6 +14,7 @@ FY4_*_on_FY3.npz 仅用于读取 SSI 计算 CSI；lons/lats 不取自 FY4。
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 import time
@@ -132,15 +133,18 @@ def resample_rest2_to_fy3(
     lats_tgt_2d: np.ndarray,
 ) -> np.ndarray:
     """Bilinear REST2 GHI (descending lat storage) onto FY-3 target mesh."""
-    lats_asc = lats_src_desc[::-1]
-    ghi_asc = ghi[::-1, :]
+    lats_asc = np.ascontiguousarray(lats_src_desc[::-1])
+    lons_src = np.ascontiguousarray(lons_src)
+    ghi_asc = np.ascontiguousarray(ghi[::-1, :], dtype=np.float64)
     interp = RegularGridInterpolator(
         (lats_asc, lons_src),
         ghi_asc,
         bounds_error=False,
         fill_value=np.nan,
     )
-    target_points = np.column_stack([lats_tgt_2d.ravel(), lons_tgt_2d.ravel()])
+    target_points = np.ascontiguousarray(
+        np.column_stack([lats_tgt_2d.ravel(), lons_tgt_2d.ravel()])
+    )
     return interp(target_points).reshape(lats_tgt_2d.shape).astype(np.float32)
 
 
@@ -355,14 +359,21 @@ def process_date(args: argparse.Namespace, date: str) -> None:
     resampled_dir = (args.resampled_dir or default_resampled_dir(date)).resolve()
     output_dir = (args.output_dir or default_output_dir(date)).resolve()
     cache_dir = args.rest2_cache_dir.resolve()
+    slots = sorted(
+        match.group(1)
+        for path in resampled_dir.glob("FY4_*_on_FY3.npz")
+        if (match := re.fullmatch(r"FY4_(\d{4})_on_FY3", path.stem))
+    )
+    if not slots:
+        slots = FY3_FY4_SLOT_SPECS
 
     print("REST2 GHI → FY-3C 网格重采样（工作流 step 03c）")
     print(f"  日期: {date}")
     print(f"  REST2 缓存: {cache_dir} (step={args.rest2_grid_step}°)")
     print(f"  FY4 参考: {resampled_dir}")
     print(f"  输出: {output_dir}")
-    print(f"  时次: {len(FY3_FY4_SLOT_SPECS)} 个")
-    for slot in FY3_FY4_SLOT_SPECS:
+    print(f"  时次: {len(slots)} 个")
+    for slot in slots:
         print(f"    {dual_time_label(slot)}")
 
     if args.list_only:
@@ -382,8 +393,8 @@ def process_date(args: argparse.Namespace, date: str) -> None:
     skipped = 0
     t_all = time.perf_counter()
 
-    for idx, slot in enumerate(FY3_FY4_SLOT_SPECS, start=1):
-        print(f"\n--- [{idx}/{len(FY3_FY4_SLOT_SPECS)}] ---")
+    for idx, slot in enumerate(slots, start=1):
+        print(f"\n--- [{idx}/{len(slots)}] ---")
         row = process_slot(
             slot,
             date,
@@ -402,7 +413,7 @@ def process_date(args: argparse.Namespace, date: str) -> None:
     total_s = time.perf_counter() - t_all
     print(
         f"\n完成: 写入 {len(results)} 个, 跳过 {skipped} 个, "
-        f"共 {len(FY3_FY4_SLOT_SPECS)} 时次, 耗时 {total_s:.1f} s"
+        f"共 {len(slots)} 时次, 耗时 {total_s:.1f} s"
     )
 
     if results:

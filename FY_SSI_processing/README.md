@@ -74,6 +74,8 @@ FY-4A：2748×2748，raw 文件通道 0=纬度、1=经度，`1000000` 为无效�
 
 **日期范围**：各 step 脚本支持可选 `--end-date YYYYMMDD`（含），与 `--date` 一起使用时在脚本内逐日循环，并打印 `[3/31] 20180503` 进度；省略 `--end-date` 时行为与原先单 `--date` 相同。
 
+step_05 默认在 FY-3 全国覆盖网格 `73–135°E, 18–54°N` 上切样本；FY-3 patch 为 `128×128`，滑窗步长同为 `128`，因此空间样本互不重叠。沿用原质控容差：时次覆盖率至少 99%、联合有效率与 CSI 有效率至少 95%、时间反演误差超限比例不超过 5%；写盘前另行要求四个最终数组全部为有限值。CSI 不按 `[0, 1.5]` 等数值范围筛选或截断。每个未压缩 NPZ batch 同时保存 `fy3`、`fy4`、`hr_csi` 与 `lr_csi` 四个配对数组。
+
 ```powershell
 # 整月预处理示例（step_01、step_02 与 step_04）
 py -3 FY_SSI_processing\step_01_estimate_fy3c_timestamp_from_sz.py --date 20180501 --end-date 20180531 --stride 1 --start 07:00 --end 15:30 --use-local-time-prior --prior-window-minutes 120 --max-error-deg 0.5
@@ -157,11 +159,24 @@ py -3 FY_SSI_processing\step_05_build_fy3_fy4_samples.py
 
 默认输入：step_01 时间戳、step_02 `FY4_*_on_FY3.npz`、step_03 `fy4_slot_map` 与 step_04 REST2 场。
 
-默认输出 `outputs/fy/samples/20180501_utc/`（可用 `--output-dir` 指定）：
+两年数据集使用总控脚本逐日重建，所有最终样本与中间文件均写入 E 盘：
 
-- `sample_index.csv`、`patches/batch_*.npz`、`build_meta.npz`
+```powershell
+python FY_SSI_processing\rebuild_2018_2019_dataset.py run --date 20180501
+python FY_SSI_processing\rebuild_2018_2019_dataset.py run
+python FY_SSI_processing\rebuild_2018_2019_dataset.py validate --date 20180501
+python FY_SSI_processing\rebuild_2018_2019_dataset.py finalize
+```
 
-**FY-4 patch 下采样（step_05）**：从与 FY-3 同范围的 64×64 重采样 SSI 上取 `patch[::4, ::4]` 得到 16×16（`pool=4`），与 FY-4 4 km 等效分辨率对应；**不是**对每 4×4 像元做平均。64×64 重采样场在图上可能呈阶梯状（step_02 `nearest` 引起），属预期。
+根目录默认为 `E:\Super-Resolution-Samples-2018-2019`。每日最终目录直接包含：
+
+批量模式默认同时处理 2 天（`--workers 2`），适配当前 16 GB 内存；如需降低资源占用可用 `--workers 1`。样本步骤会直接在线构建 slot map，不再额外写匹配图和匹配 NPZ；时间反演也不生成诊断图。
+
+- `manifest.csv`
+- `YYYYMMDD_0001.npz` 等未压缩 batch
+- `build_meta.npz`
+
+**FY-4 patch 下采样（step_05）**：从与 FY-3 同范围的 128×128 重采样 SSI 上取 `patch[::4, ::4]` 得到 32×32（`pool=4`），与 FY-4 4 km 等效分辨率对应；**不是**对每 4×4 像元做平均。128×128 重采样场在图上可能呈阶梯状（step_02 `nearest` 引起），属预期。
 
 ## 输出目录说明
 

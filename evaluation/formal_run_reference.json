@@ -1,0 +1,22 @@
+{
+  "model_checkpoint_epoch": 65,
+  "model_checkpoint_sha256": "46074a07d9e7f0afb675a97f6d0f12e7aef7dbcd7c8b8660ef5bc37eedc02864",
+  "split_counts": {
+    "train": 177380,
+    "validation": 35482,
+    "test": 35476
+  },
+  "split_sha256": {
+    "train_samples.csv": "7638d2c0a1771fe9de8e846911c3afd80d7cbe4133a097c7f24ec87686fae959",
+    "validation_samples.csv": "b30e9b08cf37629916eacc66a1a5a291f889ad853c08cfc5df61d0d28a4f19f5",
+    "test_samples.csv": "3f3a72f49919a93228f6673932397316dbd6ed5989769f044253e4a21882d710"
+  },
+  "verified_training_source_sha256": {
+    "models/network_drct.py": "1f9b35f76cbe32f2e43c7b62e1b3eae61367b50ffc9f284687534c652682499b",
+    "models/initialization.py": "30377423a748a8c281b97cba6b00e8639224f8f5f4eb4bbaf23dfb5dbc2c3c0d",
+    "utils/training.py": "dce35a973abd925deda55aa93e6040c3a2c114b3283bb1009c4f3c56b31a5845",
+    "utils/metrics.py": "1d7987f591b1b5c6e30022e43a099d33ca9e5e56bfd4dc20c76e256a78c26fde",
+    "exp/train_x4.json": "479546c69c4639421532d2bb88ddc153e1ab0e8d7b1d103d66ec12a4667997d5"
+  },
+  "archived_evaluation_exporter_sha256": "7c4d3eb84eec48cffef3f7292ac9abdd2dc939b28f9d77a1f972a9a5995e23dc"
+}
