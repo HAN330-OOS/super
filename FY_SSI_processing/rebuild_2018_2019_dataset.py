@@ -32,6 +32,10 @@ from fy_io import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from MERRA2.data_paths import merra2_data_root
+
 DEFAULT_DATASET_ROOT = Path(r"E:\Super-Resolution-Samples-2018-2019")
 FIRST_DATE = "20180501"
 LAST_DATE = "20191231"
@@ -94,7 +98,7 @@ def selected_dates(args: argparse.Namespace) -> list[str]:
 
 
 def merra_file(product: str, date: str) -> Path:
-    return PROJECT_ROOT / "MERRA2" / product / f"MERRA2_400.{product}.{date}.SUB.nc4"
+    return merra2_data_root() / product / f"MERRA2_400.{product}.{date}.SUB.nc4"
 
 
 def verify_raw_inputs(date: str) -> None:

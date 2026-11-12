@@ -5,7 +5,7 @@ Outputs one npz per UTC slot:
   rest2_ghi_<YYYYMMDD>_<HHMM>_step0.50.npz
 with fields ghi, lons, lats, time_utc, grid_step.
 
-Uses local MERRA-2 daily SUB.nc4 files under MERRA2/tavg1_2d_*.
+Uses local daily MERRA-2 SUB.nc4 files from the configured data directory.
 """
 
 from __future__ import annotations
@@ -21,6 +21,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from scipy.interpolate import RegularGridInterpolator
+
+from data_paths import merra2_data_root
 
 ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = ROOT.parent
@@ -74,7 +76,7 @@ def slot_to_timestamp(date: str, slot: str) -> pd.Timestamp:
 
 
 def _file_for(product: str, date: str) -> Path:
-    return ROOT / product / f"MERRA2_400.{product}.{date}.SUB.nc4"
+    return merra2_data_root() / product / f"MERRA2_400.{product}.{date}.SUB.nc4"
 
 
 def _install_bsrn_compat_modules() -> None:

@@ -2,9 +2,9 @@
 MERRA-2 batch downloader (Earthdata Login).
 
 Reads three subset link text files and downloads:
-  - tavg1_2d_aer_Nx (TOTEXTTAU, TOTANGSTR)  -> MERRA2/tavg1_2d_aer_Nx/
-  - tavg1_2d_rad_Nx (ALBEDO)                -> MERRA2/tavg1_2d_rad_Nx/
-  - tavg1_2d_slv_Nx (PS, TO3, TQV)          -> MERRA2/tavg1_2d_slv_Nx/
+  - tavg1_2d_aer_Nx (TOTEXTTAU, TOTANGSTR)  -> <data root>/tavg1_2d_aer_Nx/
+  - tavg1_2d_rad_Nx (ALBEDO)                -> <data root>/tavg1_2d_rad_Nx/
+  - tavg1_2d_slv_Nx (PS, TO3, TQV)          -> <data root>/tavg1_2d_slv_Nx/
 
 Uses Earthdata Login Basic Auth, concurrent downloads, atomic writes,
 skips already-downloaded files (resume), retries on transient errors.
@@ -28,22 +28,26 @@ from urllib.parse import urlparse, unquote, parse_qs
 
 import requests
 
+from data_paths import merra2_data_root
+
 ROOT = Path(__file__).resolve().parent
+
+DATA_ROOT = merra2_data_root()
 
 PRODUCTS = {
     "aer": {
         "txt": ROOT / "subset_txt" / "subset_M2T1NXAER_5.12.4_20260522_053634_.txt",
-        "out_dir": ROOT / "tavg1_2d_aer_Nx",
+        "out_dir": DATA_ROOT / "tavg1_2d_aer_Nx",
         "short": "tavg1_2d_aer_Nx",
     },
     "rad": {
         "txt": ROOT / "subset_txt" / "subset_links_6e5f34dd-5911-4a75-b53a-5f507f863d54.txt",
-        "out_dir": ROOT / "tavg1_2d_rad_Nx",
+        "out_dir": DATA_ROOT / "tavg1_2d_rad_Nx",
         "short": "tavg1_2d_rad_Nx",
     },
     "slv": {
         "txt": ROOT / "subset_txt" / "subset_M2T1NXSLV_5.12.4_20260522_063115_.txt",
-        "out_dir": ROOT / "tavg1_2d_slv_Nx",
+        "out_dir": DATA_ROOT / "tavg1_2d_slv_Nx",
         "short": "tavg1_2d_slv_Nx",
     },
 }

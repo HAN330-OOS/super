@@ -19,6 +19,7 @@ DRCT/pretrained_models/
 *.log
 
 # MERRA-2 downloads and generated products
+/MERRA2/data_root.local
 /MERRA2/tavg1_2d_*/
 /MERRA2/rest2_outputs/
 /MERRA2/subset_txt/

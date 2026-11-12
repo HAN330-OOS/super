@@ -19,25 +19,29 @@ from pathlib import Path
 
 from netCDF4 import Dataset
 
+from data_paths import merra2_data_root
+
 
 ROOT = Path(__file__).resolve().parent
 REPORT_DIR = ROOT / "validation_reports"
 
+DATA_ROOT = merra2_data_root()
+
 PRODUCTS = {
     "aer": {
-        "dir": ROOT / "tavg1_2d_aer_Nx",
+        "dir": DATA_ROOT / "tavg1_2d_aer_Nx",
         "short": "tavg1_2d_aer_Nx",
         "vars": {"TOTEXTTAU", "TOTANGSTR", "time", "lat", "lon"},
         "expected_count": 730,
     },
     "rad": {
-        "dir": ROOT / "tavg1_2d_rad_Nx",
+        "dir": DATA_ROOT / "tavg1_2d_rad_Nx",
         "short": "tavg1_2d_rad_Nx",
         "vars": {"ALBEDO", "time", "lat", "lon"},
         "expected_count": 731,
     },
     "slv": {
-        "dir": ROOT / "tavg1_2d_slv_Nx",
+        "dir": DATA_ROOT / "tavg1_2d_slv_Nx",
         "short": "tavg1_2d_slv_Nx",
         "vars": {"PS", "TO3", "TQV", "time", "lat", "lon"},
         "expected_count": 730,
