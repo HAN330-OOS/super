@@ -6,7 +6,7 @@
 
 ## FY-4A 时间约定（必读）
 
-**官方规格**：[`FY-4A_AGRI_L2_SSI_NOM_4000M_V1.1.pdf`](../FY-4A_AGRI_L2_SSI_NOM_4000M_V1.1.pdf)（项目根目录）
+**参考规格**为 FY-4A AGRI L2 SSI 4000 m 产品说明（V1.1）。
 
 | 来源 | 时区 |
 |------|------|
@@ -18,8 +18,6 @@
 匹配逻辑：FY-4 半开窗 `[UTC start, start+15min)` 由文件名定义；FY-3 `best_minute`（CST）在匹配前转为 UTC 再比较（见 `fy_io.match_pixels_to_half_open_windows`）。
 
 ## FY-4A SSI 无效像元与 DQF（`fy_io.clean_ssi`）
-
-规格：[`FY-4A_AGRI_L2_SSI_NOM_4000M_V1.1.pdf`](../FY-4A_AGRI_L2_SSI_NOM_4000M_V1.1.pdf)
 
 | 规则 | 说明 |
 |------|------|

@@ -2,7 +2,7 @@
 工作流第一步：将 FY-4A 各时次 4 km SSI 重采样到 FY-3C 全幅 0.01° 网格（3600×6200）。
 
 默认处理 20180501、UTC 00:00–06:00 窗口内全部 NC（≈ CST 08:00–14:00），输出 FY4_HHMM_on_FY3.npz。
-文件名 HHMM 为 UTC，见 FY-4A_AGRI_L2_SSI_NOM_4000M_V1.1.pdf。
+文件名 HHMM 为 UTC，见 FY-4A AGRI L2 SSI V1.1 产品说明。
 """
 from __future__ import annotations
 

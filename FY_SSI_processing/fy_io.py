@@ -23,12 +23,11 @@ REST2_ON_FY3_NPZ_PATTERN = re.compile(r"REST2_(\d{4})_on_FY3\.npz$", re.IGNORECA
 
 FY4_NC_TIME_PATTERN = re.compile(r"(\d{14})_(\d{14})")
 
-# FY-4A AGRI L2 SSI 文件名 YYYYMMDDHHMMSS 为 UTC（见 FY-4A_AGRI_L2_SSI_NOM_4000M_V1.1.pdf；
+# FY-4A AGRI L2 SSI 文件名 YYYYMMDDHHMMSS 为 UTC（见 FY-4A AGRI L2 SSI V1.1 产品说明；
 # time_coverage_start/end 格式 YYYY-MM-DDTHH:MM:SS.sZ）。
 CST_OFFSET_MINUTES = 8 * 60
-FY4_SPEC_PDF = PROJECT_ROOT / "FY-4A_AGRI_L2_SSI_NOM_4000M_V1.1.pdf"
 
-# SSI 无效填充与有效范围（见 FY4_SPEC_PDF；变量属性 valid_range=[0, 1500] W/m²）。
+# SSI 无效填充与有效范围（见 FY-4A AGRI L2 SSI V1.1 产品说明；变量属性 valid_range=[0, 1500] W/m²）。
 SSI_FILL_MISSING = -999.0
 SSI_FILL_SZA_MASK = 65532.0  # V1.0 NC（如 20180501）：SZA>70°；V1.1 文档为 SZA>90°
 SSI_FILL_OFF_DISK = 65535.0
@@ -281,7 +280,7 @@ def clean_ssi(
     """
     清洗 FY-4A SSI：剔除填充值与越界值。
 
-    无效像元规则（FY4_SPEC_PDF + 20180501 V1.0 NC 实测）：
+    无效像元规则（FY-4A AGRI L2 SSI V1.1 产品说明 + 20180501 V1.0 NC 实测）：
     - ``-999``：缺测
     - ``65532``：SZA 超阈值无效（**V1.0：>70°**；**V1.1 文档：>90°**）
     - ``65535``：圆盘外
@@ -307,7 +306,7 @@ def apply_dqf_mask(
     """
     按 DQF 掩膜 SSI。
 
-    策略（FY4_SPEC_PDF）：``DQF==3`` 始终剔除；``DQF==2`` 可选剔除。
+    策略（FY-4A AGRI L2 SSI V1.1 产品说明）：``DQF==3`` 始终剔除；``DQF==2`` 可选剔除。
     20180501 V1.0 NC 中 DQF 常全为 3（未正确分级）——此时跳过 DQF 掩膜，
     改由 ``clean_ssi`` 的 65532/65535 规则处理无效像元。
     """
