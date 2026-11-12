@@ -30,6 +30,7 @@
 | [MERRA2/](MERRA2/) | 气象数据获取与核验、REST2 晴空 GHI 计算 |
 | [splits/](splits/) | 训练、验证和测试的固定样本索引 |
 | [evaluation/](evaluation/) | 正式预测与 GHI 评价、指标汇总及复现校验记录 |
+| [FY4A-FY3C-Ground-Validation/](FY4A-FY3C-Ground-Validation/) | 已配对卫星样本与 CMA 分钟 GHI 的地基验证 |
 | [environment.yml](environment.yml) | FY 和 MERRA-2 预处理所用的 Python 环境 |
 
 ## 数据来源与预处理
@@ -104,6 +105,10 @@ python test_DRCT.py --opt exp/train_x4.json \
 从仓库根目录运行 `evaluation/export_test_predictions.py`，`--mode smoke` 检查前两个测试图块，`--mode full` 运行完整独立测试。该脚本需要支持 CUDA 的运行环境，以及正式权重、样本、晴空数组和行号映射。复算命令与各输入路径见 [evaluation/README.md](evaluation/README.md)。
 
 结果导出后，可用 `evaluation/verify_test_export.py --run-dir <运行目录>` 核对预测、数据顺序和来源校验值。
+
+## 地基验证
+
+地基验证沿用正式测试集的卫星配对。先按站点经纬度查找测试图块，再按已有的 FY-4A 扫描窗口取 CMA 分钟 GHI。四种卫星产品在共同配对上使用同一份地基参考。站点和分钟数据模板、匹配参数以及运行步骤见 [地基验证说明](FY4A-FY3C-Ground-Validation/README.md)。
 
 ## 许可证
 

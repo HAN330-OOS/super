@@ -1,0 +1,47 @@
+{
+  "samples_root": "/path/to/satellite_dataset/samples",
+  "source_library_csv": "/path/to/satellite_dataset/all_samples.csv",
+  "splits_root": "/path/to/super/splits",
+  "original_test_csv": "/path/to/satellite_dataset/splits/test_samples.csv",
+  "clear_indices": "/path/to/archive/test_clear_ghi_indices.npy",
+  "clear_ghi": "/path/to/satellite_dataset/splits/test_clear_ghi_clean.npy",
+  "clear_provenance": "/path/to/satellite_dataset/splits/test_clear_ghi.json",
+  "formal_run": "/path/to/formal_run",
+  "checkpoint": "/path/to/archive/checkpoints/best_epoch_065.pth",
+  "output_dir": "output",
+  "expected_test_samples": 35476,
+  "grid": {
+    "longitude_origin": 73.0,
+    "latitude_origin": 54.0,
+    "step_degrees": 0.01,
+    "shape": [
+      3600,
+      6200
+    ],
+    "hr_size": 128,
+    "lr_size": 32,
+    "lr_stride": 4,
+    "lr_anchor_offset": 0
+  },
+  "fy4_scan_window_minutes": 15,
+  "ground_contract": {
+    "stations_columns": [
+      "station_id",
+      "longitude",
+      "latitude"
+    ],
+    "observations_columns": [
+      "station_id",
+      "time_utc",
+      "ghi_w_m2",
+      "qc_flag",
+      "time_support",
+      "interval_start_utc",
+      "interval_end_utc"
+    ],
+    "minimum_valid_minutes": 8,
+    "reference_time_window": "existing_fy4_scan_window_for_all_four_products"
+  },
+  "bicubic_prediction": "/path/to/formal_run/bicubic_prediction_csi.npy",
+  "bicubic_manifest": "/path/to/formal_run/bicubic_prediction_manifest.json"
+}

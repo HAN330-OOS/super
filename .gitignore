@@ -27,7 +27,9 @@ DRCT/pretrained_models/
 /MERRA2/*.exe
 
 # Local analysis, validation and Python environments
-/FY4A-FY3C-Ground-Validation/
+/FY4A-FY3C-Ground-Validation/config.json
+/FY4A-FY3C-Ground-Validation/input/
+/FY4A-FY3C-Ground-Validation/output/
 /formal_analysis_2018_2019/
 .vscode/
 .venv/
