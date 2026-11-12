@@ -51,3 +51,13 @@ python step_1_prepare.py match --stations input/stations.csv --ground input/minu
 命令中的 `PASS` 是占位示例。`pairs.csv` 记录每次配对的 CMA 参考值和四种卫星 GHI。`metrics.csv` 记录四种产品在共同配对上的指标、站点数和配对数。
 
 目前已用正式索引验证卫星端定位和取值。实际 CMA 文件接入后需要核对时间字段、单位和质控标志，再运行正式地基评价。
+
+## 导出完整 Bicubic 基线
+
+已有完整 Bicubic 数组时可直接使用归档文件。需要重新生成时，先完成 `build`，再在安装了 `opencv-python==5.0.0.93` 的环境运行下列命令。输出目录需要是新目录。
+
+~~~bash
+python export_bicubic_full.py --config config.json --output-dir /path/to/new_bicubic_output
+~~~
+
+程序以正式测试索引顺序保存 `bicubic_prediction_csi.npy` 和 `bicubic_prediction_manifest.json`。新建配置时可预先把 Bicubic 的两个路径填成计划导出的路径，建好索引后再生成数组。

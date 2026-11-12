@@ -4,3 +4,4 @@
 /DRCT/models/initialization.py -text
 /DRCT/utils/training.py -text
 /DRCT/utils/metrics.py -text
+/evaluation/compute_swinir_ghi.py -text

@@ -7,6 +7,8 @@
 - [固定划分与数据格式](#固定划分与数据格式)
 - [训练和独立测试](#训练和独立测试)
 - [GHI 复算与校验](#ghi-复算与校验)
+- [论文绘图](#论文绘图)
+- [地基验证](#地基验证)
 
 ## 正式结果
 
@@ -29,7 +31,8 @@
 | [FY_SSI_processing/](FY_SSI_processing/) | FY-3C 时间估计、FY-4A 重采样、配对和图块生成 |
 | [MERRA2/](MERRA2/) | 气象数据获取与核验、REST2 晴空 GHI 计算 |
 | [splits/](splits/) | 训练、验证和测试的固定样本索引 |
-| [evaluation/](evaluation/) | 正式预测与 GHI 评价、指标汇总及复现校验记录 |
+| [evaluation/](evaluation/) | DRCT、Bicubic、EDSR 和 SwinIR 的 GHI 评价与指标汇总 |
+| [figures/](figures/) | 论文图 1–3 的定稿绘图脚本 |
 | [FY4A-FY3C-Ground-Validation/](FY4A-FY3C-Ground-Validation/) | 已配对卫星样本与 CMA 分钟 GHI 的地基验证 |
 | [environment.yml](environment.yml) | FY 和 MERRA-2 预处理所用的 Python 环境 |
 
@@ -105,6 +108,10 @@ python test_DRCT.py --opt exp/train_x4.json \
 从仓库根目录运行 `evaluation/export_test_predictions.py`，`--mode smoke` 检查前两个测试图块，`--mode full` 运行完整独立测试。该脚本需要支持 CUDA 的运行环境，以及正式权重、样本、晴空数组和行号映射。复算命令与各输入路径见 [evaluation/README.md](evaluation/README.md)。
 
 结果导出后，可用 `evaluation/verify_test_export.py --run-dir <运行目录>` 核对预测、数据顺序和来源校验值。
+
+## 论文绘图
+
+[figures/](figures/) 收录架构图排版、横向 Viridis 密度散点图和共用分位数色标的 CSI 对比图。各图所需的模板和正式实验输入，以及可直接运行的命令见 [绘图说明](figures/README.md)。
 
 ## 地基验证
 

@@ -205,3 +205,7 @@ py -3 FY_SSI_processing\step_03_build_fy3_fy4_slot_map.py --help
 py -3 FY_SSI_processing\step_04_resample_rest2_ghi_to_fy3_grid.py --help
 py -3 FY_SSI_processing\step_05_build_fy3_fy4_samples.py --help
 ```
+
+## 过程质量检查
+
+[monitor_dataset_progress.py](monitor_dataset_progress.py) 查看样本构建进度。[plots/plot_random_spatiotemporal_qc.py](plots/plot_random_spatiotemporal_qc.py) 从现有样本中抽查时空配对。[generate_monthly_swath_qc.py](generate_monthly_swath_qc.py) 为需要补做检查图的月份生成轨道图。这三个脚本都可通过 `--dataset-root` 指定样本库。
